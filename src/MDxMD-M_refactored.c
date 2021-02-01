@@ -71,6 +71,16 @@ int main(int np, char *p[])
         BD[k].i = rand() % (nn - 1);
         BD[k].j = rand() % (nn - 1);
         BD[k].v = rand() % 100;
+
+        /**
+         * Inicializamos la matriz BD en cada posición con dos coordenadas para indexar en la matriz y un valor
+         * comprendido entre 0 y 99. Entramos en el bucle si no hay ceros en la matriz B. Si los hay, nos
+         * quedamos iterando hasta que encontremos uno. Mientras estemos en el bucle, lo que haremos será ir
+         * desplazándonos +1 en los dos ejes de la matriz B empezando desde 0 si nos salimos del rango en algun
+         * eje dependiendo de cual eje haya obtenido el mayor número aleatorio.
+         * Finalmente cuando encontramos un 0 salimos del bucle y guardamos nuestro valor en esa posición,
+         * sobreeescribiendo el cero que había previamente.
+         */
         while (B[BD[k].i][BD[k].j])
         {
             if(BD[k].i < BD[k].j)
