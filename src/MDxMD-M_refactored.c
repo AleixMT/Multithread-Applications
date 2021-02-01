@@ -4,107 +4,148 @@
 #include <strings.h>
 #include <assert.h>
 
-#define N 10000L
-#define ND N*N/100
+// No son necesarios los defines tras el refactor
+struct Vector
+{
+    int i, j, v;
+};
 
-int A[N][N],B[N][N],C[N][N],C1[N][N],C2[N][N],VBcol[N];
-struct {
-    int i,j,v;
-}AD[ND],BD[ND];
-
-int nn,nnD;
-long long Sum;
+/**
+ * Eliminadas variables globales individuales. Este tipo de variable se mapea obligatoriamente en memoria por lo que
+ * se pierde tiempo en accederlas. Por supuesto, se benefician de las ventajas de la caché, pero esto no puede
+ * competir con una variable que puede estar mapeada en los registros del procesador.
+ **/
 
 int main(int np, char *p[])
 {
-    int i,j,k,neleC;
+    int i, j, k;
+    assert(np == 2);  // Check number of parameters
 
-    assert(np==2);
+    int nn = atoi(p[1]);
+    assert(nn <= N);  // Check that the first number is less or equal to N
+    srand(1);  // Initialize fixed random seed for reproducible results (in the checksum of C)
 
-    nn = atoi(p[1]);
-    assert(nn<=N);
-    srand(1);
+    int nnD = nn * nn / 100;
 
-    nnD = nn*nn/100;
+    /** Usamos solamente nn * nn * int por cada matriz en memoria, donde nn es menor o igual a 10000, eso es como
+     * máximo 10000 * 10000  * 4 Bytes = 4 * 10 ^ 8 Bytes de memoria que es exactamente lo que reservamos de forma
+     * estática al principio del código, sin embargo, nn no siempre será el máximo, por lo que estamos reservando
+     * más memoria de la necesaria 9999 veces de cada 10000 variaciones posibles en nuestro parámetro durante la
+     * ejecución del algoritmo. Para ello lo que haré será declarar las matrices justo aquí con la cantidad de memoria
+     * justa y necesaria para el algoritmo. También hay que tener en cuenta que quizá luego SÍ necesitemos alguna
+     * variable global, pero el objetivo siempre será minimizarlas para minimizar al máximo las situaciones de
+     * sincronización, haciendo al algoritmo más rápido y a la implementación más sencilla.
+     */
 
-    bzero(A,sizeof(int)*(nn*nn));
-    bzero(B,sizeof(int)*(nn*nn));
-    bzero(C,sizeof(int)*(nn*nn));
-    bzero(C1,sizeof(int)*(nn*nn));
-    bzero(C2,sizeof(int)*(nn*nn));
-     
-    for(k=0;k<nnD;k++)
+    int A[nn][nn], B[nn][nn], C[nn][nn], C1[nn][nn], C2[nn][nn], VBcol[N];
+    bzero(A, sizeof(int) * (nn * nn));
+    bzero(B, sizeof(int) * (nn * nn));
+    bzero(C, sizeof(int) * (nn * nn));
+    bzero(C1, sizeof(int) * (nn * nn));
+    bzero(C2, sizeof(int) * (nn * nn));
+
+
+    Vector AD[nnD], BD[nnD];
+    for(k = 0; k < nnD; k++)
     {
-        AD[k].i=rand()%(nn-1);
-        AD[k].j=rand()%(nn-1);
-        AD[k].v=rand()%100;
-        while (A[AD[k].i][AD[k].j]) {
+        AD[k].i = rand() % (nn - 1);
+        AD[k].j = rand() % (nn - 1);
+        AD[k].v = rand() % 100;
+
+        while (A[AD[k].i][AD[k].j])
+        {
             if(AD[k].i < AD[k].j)
-                AD[k].i = (AD[k].i + 1)%nn;
-            else 
-                AD[k].j = (AD[k].j + 1)%nn;
+            {
+                AD[k].i = (AD[k].i + 1) % nn;
+            }
+            else
+            {
+                AD[k].j = (AD[k].j + 1) % nn;
+            }
         }
         A[AD[k].i][AD[k].j] = AD[k].v;
     }
 
-    for(k=0;k<nnD;k++)
+    for(k = 0; k < nnD; k++)
     {
-        BD[k].i=rand()%(nn-1);
-        BD[k].j=rand()%(nn-1);
-        BD[k].v=rand()%100;
-        while (B[BD[k].i][BD[k].j]) {
+        BD[k].i = rand() % (nn - 1);
+        BD[k].j = rand() % (nn - 1);
+        BD[k].v = rand() % 100;
+        while (B[BD[k].i][BD[k].j])
+        {
             if(BD[k].i < BD[k].j)
-                BD[k].i = (BD[k].i + 1)%nn;
-            else 
-                BD[k].j = (BD[k].j + 1)%nn;
+            {
+                BD[k].i = (BD[k].i + 1) % nn;
+            }
+            else
+            {
+                BD[k].j = (BD[k].j + 1) % nn;
+            }
         }
         B[BD[k].i][BD[k].j] = BD[k].v;
     }
-
-    ////Original Matrix X Matrix (column first)
-    //for (i=0;i<nn;i++)
-    //    for (j=0;j<nn;j++)
-    //        for (k=0;k<nn;k++)
-    //            C[j][i] += A[j][k] * B[k][i];
  
     //Sparce Matrix X Dense Matrix -> Dense Matrix
-    for(i=0;i<nn;i++)
-        for (k=0;k<nnD;k++)
+    for(i = 0; i < nn; i++)
+    {
+        for (k = 0; k < nnD; k++)
+        {
             C1[AD[k].i][i] += AD[k].v * B[AD[k].j][i];
+        }
+    }
+
             
     //Sparce Matrix X Sparce Matrix -> Dense Matrix
-    for (j=0;j<nn;j++)
+    for (j = 0; j < nn; j++)
+    {
         VBcol[j] = 0;
+    }
 
-    for(i=0;i<nn;i++)
-      {
+    for(i = 0; i < nn; i++)
+    {
         // Column expansion of B[*][i]
-        for (k=0;k<nnD;k++)
+        for (k = 0; k < nnD; k++)
+        {
             if (BD[k].j == i)
+            {
                 VBcol[BD[k].i] = BD[k].v;
-        // Full column C computation
-        for (k=0;k<nnD;k++)
-            C2[AD[k].i][i] += AD[k].v * VBcol[AD[k].j];
-        // Clear of  B[*][i]
-        for (j=0;j<nn;j++)
-            VBcol[j] = 0;
-      }
-                
-    // Check (MD x M -> M) vs (MD x MD -> M)
-    neleC = 0;
-    Sum = 0;
-    for (i=0;i<nn;i++)
-        for(j=0;j<nn;j++)
-	  {
-            if (C2[i][j] != C1[i][j])
-                printf("Not-Equal C1 & C2 pos %d,%d: %d != %d\n",i,j,C1[i][j],C2[i][j]);
-	    if (C1[i][j])  // Some Value
-	      {
-		Sum += C1[i][j];
-		neleC++;
-	      }
-	  }
+            }
+        }
 
-    printf ("\nNumber of elements in C %d\n",neleC);   
-    printf("Checksum of C %lld \n",Sum);
+        // Full column C computation
+        for (k = 0; k < nnD; k++)
+        {
+            C2[AD[k].i][i] += AD[k].v * VBcol[AD[k].j];
+        }
+        // Clear of  B[*][i]
+        for (j = 0; j < nn; j++)
+        {
+            VBcol[j] = 0;
+        }
+    }
+
+    // VALIDATION
+    // Check (MD x M -> M) vs (MD x MD -> M)
+    int neleC = 0;
+    long long Sum = 0;
+    for (i = 0; i < nn; i++)
+    {
+        for(j = 0; j < nn; j++)
+        {
+            if (C2[i][j] != C1[i][j])
+            {
+                printf("Not-Equal C1 & C2 pos %d,%d: %d != %d\n", i, j, C1[i][j], C2[i][j]);
+            }
+            if (C1[i][j])  // Some Value
+            {
+                Sum += C1[i][j];
+                neleC++;
+            }
+        }
+    }
+
+
+    printf ("\nNumber of elements in C %d", neleC);
+    printf("\nChecksum of C %lld ", Sum);
+    printf("\n");
 }
