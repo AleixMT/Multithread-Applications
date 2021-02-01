@@ -106,5 +106,5 @@ int main(int np, char *p[])
 	  }
 
     printf ("\nNumber of elements in C %d\n",neleC);   
-    printf("Checksum of C %lli \n",Sum);
+    printf("Checksum of C %lld \n",Sum);
 }

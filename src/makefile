@@ -14,7 +14,7 @@ uninstall :
 MDxMD-M : MDxMD-M_refactored.c
 	gcc -O3 -Wall MDxMD-M_refactored.c -o MDxMD-M
 
-run: 
+run: MDxMD-M
 	time ./MDxMD-M 100
 
 MDxMD-M_alpha : MDxMD-M_refactored.c
