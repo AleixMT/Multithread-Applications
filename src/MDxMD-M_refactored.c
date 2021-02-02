@@ -98,12 +98,18 @@ int main(int np, char *p[])
         * B = (int *)calloc(dim * dim, sizeof(int));
 
     Vector * AD = (Vector *)malloc(sizeof(Vector) * (dim * dim / 100));
-    Vector *BD = (Vector *)malloc(sizeof(Vector) * (dim * dim / 100));
+    Vector * BD = (Vector *)malloc(sizeof(Vector) * (dim * dim / 100));
 
-    // B --> BD, A --> AD
     init(dim, A, AD);
     init(dim, B, BD);
 
+    /**
+     * La matriz AD y BD (aparentemente) se usa como almacén de índices aleatorios para acceder a las posiciones
+     * de las demás matrices, por lo que la posición que solicitamos no está determinada, sinó que es random, entonces
+     * la dependencia de datos es hacia toda la matriz AD y BD si usamos los valores en AD y/o BD para índexar en las
+     * demás matrices. Por ejemplo, aquí hay dependencia de lectura y de escritura de la matriz C1 entera, ya que no
+     * sabemos donde apuntará el índice de AD[k].i
+     */
     //Sparce Matrix X Dense Matrix -> Dense Matrix
     int * C1 = (int *)calloc(dim * dim, sizeof(int));
     for (i = 0; i < dim; i++)
@@ -129,7 +135,10 @@ int main(int np, char *p[])
                 VBcol[BD[k].i] = BD[k].v;
             }
         }
-
+        /**
+         * This second for only needs VBcol for reading, so we can fork the program here and pass a copy of VBcol to
+         * compute this for while the other for block reinitializes VBcol to 0 with the original VBcol data
+         */
         // Full column C computation
         for (k = 0; k < (dim * dim / 100); k++)
         {
@@ -144,6 +153,11 @@ int main(int np, char *p[])
 
     // VALIDATION
     // Check (MD x M -> M) vs (MD x MD -> M)
+    /**
+     * the two ifs in this clode block are totally independent from each other, so one thread can do the loop
+     * with one if and the other will do the loop with the other if. Also we can convert the first if to a
+     * reduced clausule of boolean accumulation
+     */
     int neleC = 0;
     long long Sum = 0;
     for (i = 0; i < dim; i++)
@@ -152,7 +166,7 @@ int main(int np, char *p[])
         {
             if (C2[i * dim + j] != C1[i * dim + j])
             {
-                printf("Not-Equal C1 & C2 pos %d,%d: %d != %d\n", i, j, C1[i * dim + j], C2[i * dim + j]);
+                printf("Not-Equal C1 & C2 pos %d, %d: %d != %d\n", i, j, C1[i * dim + j], C2[i * dim + j]);
             }
             if (C1[i * dim + j])  // Some Value
             {
